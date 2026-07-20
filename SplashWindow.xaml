@@ -12,7 +12,7 @@
         Background="Transparent"
         ShowInTaskbar="True"
         Icon="/Images/app.ico">
-    <Border Background="{StaticResource Bg0Brush}" BorderBrush="{StaticResource BorderBrush2}"
+    <Border Background="White" BorderBrush="#DDDDDD"
             BorderThickness="1" CornerRadius="12">
         <Grid Margin="30">
             <Grid.RowDefinitions>
@@ -20,10 +20,13 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <Image Grid.Row="0" Source="/Images/logo-cropped.png" Stretch="Uniform" Margin="0,0,0,10"/>
+            <!-- The full, uncropped logo has clean anti-aliased edges against its own white canvas —
+                 use it here (rather than logo-cropped.png, whose edges were chroma-keyed for the dark
+                 theme and would show a fringe against a white background) so there's no visible seam. -->
+            <Image Grid.Row="0" Source="/Images/BE Cruncher.png" Stretch="Uniform" Margin="0,0,0,10"/>
 
             <StackPanel Grid.Row="1" HorizontalAlignment="Center" Margin="0,10,0,0">
-                <TextBlock x:Name="StatusText" Text="Starting..." Foreground="{StaticResource TextMutedBrush}"
+                <TextBlock x:Name="StatusText" Text="Starting..." Foreground="#666666"
                            HorizontalAlignment="Center" FontSize="12"/>
             </StackPanel>
         </Grid>

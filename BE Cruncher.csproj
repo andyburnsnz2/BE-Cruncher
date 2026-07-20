@@ -8,6 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Images\app.ico</ApplicationIcon>
+    <Title>Binary size reducer for Battery Emulator open source project.  Experimental.</Title>
   </PropertyGroup>
 
   <ItemGroup>
