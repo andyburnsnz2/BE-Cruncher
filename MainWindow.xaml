@@ -1,0 +1,11 @@
+<Window x:Class="BE_Cruncher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BE_Cruncher"
+        mc:Ignorable="d"
+        Title="BE Cruncher" Height="600" Width="780" MinHeight="480" MinWidth="640"
+        Icon="/Images/app.ico">
+    <Frame x:Name="MainFrame" NavigationUIVisibility="Hidden" Background="{StaticResource Bg0Brush}"/>
+</Window>

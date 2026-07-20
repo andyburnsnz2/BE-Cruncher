@@ -1,0 +1,59 @@
+<Page x:Class="BE_Cruncher.Pages.SettingsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      mc:Ignorable="d"
+      Title="Settings"
+      d:DesignWidth="720" d:DesignHeight="500">
+    <DockPanel Margin="10">
+        <TextBlock DockPanel.Dock="Top" Text="Settings" FontWeight="Bold" FontSize="16" Margin="0,0,0,4"/>
+        <TextBlock DockPanel.Dock="Top" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"
+                   Text="Where BE Cruncher keeps downloaded releases, build workspaces, and cached data. Changes take effect the next time the app starts."
+                   Margin="0,0,0,15"/>
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,15,0,0">
+            <Button x:Name="SaveButton" Content="Save" Width="100" Click="SaveButton_Click"/>
+            <Button x:Name="BackButton" Content="&#8592; Back" Width="90" Margin="10,0,0,0" Click="BackButton_Click"/>
+        </StackPanel>
+        <TextBlock DockPanel.Dock="Top" x:Name="StatusText" Margin="0,10,0,0" TextWrapping="Wrap"/>
+
+        <StackPanel>
+            <TextBlock Text="Repositories (downloaded &amp; analyzed source)" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <Grid Margin="0,0,0,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="RepositoriesBox" Grid.Column="0"/>
+                <Button Grid.Column="1" Content="Browse..." Width="90" Margin="8,0,0,0" Tag="RepositoriesBox" Click="BrowseButton_Click"/>
+                <Button Grid.Column="2" Content="Reset" Width="70" Margin="8,0,0,0" Tag="RepositoriesBox" Click="ResetButton_Click"/>
+            </Grid>
+
+            <TextBlock Text="Workspaces (per-build source copies, generated files, and Output)" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <Grid Margin="0,0,0,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="WorkspacesBox" Grid.Column="0"/>
+                <Button Grid.Column="1" Content="Browse..." Width="90" Margin="8,0,0,0" Tag="WorkspacesBox" Click="BrowseButton_Click"/>
+                <Button Grid.Column="2" Content="Reset" Width="70" Margin="8,0,0,0" Tag="WorkspacesBox" Click="ResetButton_Click"/>
+            </Grid>
+
+            <TextBlock Text="Cache (GitHub release list cache)" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <Grid Margin="0,0,0,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="CacheBox" Grid.Column="0"/>
+                <Button Grid.Column="1" Content="Browse..." Width="90" Margin="8,0,0,0" Tag="CacheBox" Click="BrowseButton_Click"/>
+                <Button Grid.Column="2" Content="Reset" Width="70" Margin="8,0,0,0" Tag="CacheBox" Click="ResetButton_Click"/>
+            </Grid>
+        </StackPanel>
+    </DockPanel>
+</Page>

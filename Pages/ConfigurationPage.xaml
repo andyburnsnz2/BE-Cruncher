@@ -1,0 +1,43 @@
+<Page x:Class="BE_Cruncher.Pages.ConfigurationPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      mc:Ignorable="d"
+      Title="Configuration"
+      d:DesignWidth="720" d:DesignHeight="500">
+    <DockPanel Margin="10">
+        <TextBlock DockPanel.Dock="Top" Text="Step 2: Configure the build" FontWeight="Bold" Margin="0,0,0,10"/>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,15">
+            <Button x:Name="BackButton" Content="&#8592; Back" Width="90" Click="BackButton_Click"/>
+            <Button x:Name="StartBuildButton" Content="Start Build &#8594;" Width="150" Margin="10,0,0,0" Click="StartBuildButton_Click"/>
+        </StackPanel>
+
+        <StackPanel>
+            <TextBlock Text="Board" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <ComboBox x:Name="BoardCombo" DisplayMemberPath="DisplayName" Width="400" HorizontalAlignment="Left" Margin="0,0,0,15"/>
+
+            <TextBlock Text="Battery" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <ComboBox x:Name="BatteryCombo" DisplayMemberPath="DisplayName" Width="400" HorizontalAlignment="Left" Margin="0,0,0,15"/>
+
+            <TextBlock Text="Inverter" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <ComboBox x:Name="InverterCombo" DisplayMemberPath="DisplayName" Width="400" HorizontalAlignment="Left" Margin="0,0,0,15"/>
+
+            <TextBlock Text="Optional modules" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <ItemsControl x:Name="OptionalModulesList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox Content="{Binding DisplayName}" Margin="0,2,0,2" IsChecked="{Binding IsSelected}" IsEnabled="{Binding IsEnabled}"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <CheckBox x:Name="StripWebUiCheckBox" Margin="0,12,0,0"
+                      Content="Also remove excluded modules' controls from the device's own web configuration page (experimental)"/>
+            <TextBlock Foreground="{StaticResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="22,2,0,0"
+                       Text="Only applies to MQTT, ESP-NOW, and SD card — WiFi's settings are too tied to reaching the device to safely touch, and webserver's page is already gone if webserver itself is excluded. Unlike everything else this app trims, this edit isn't verified by the compiler, only by whether the file still compiles."/>
+
+            <TextBlock x:Name="StatusText" Margin="0,15,0,0" TextWrapping="Wrap" Foreground="{StaticResource ErrorBrush}"/>
+        </StackPanel>
+    </DockPanel>
+</Page>
