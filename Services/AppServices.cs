@@ -17,6 +17,7 @@ public sealed class AppServices
     public WorkspaceService WorkspaceService { get; }
     public BuildGenerator BuildGenerator { get; }
     public PlatformIoBuildService PlatformIoBuildService { get; }
+    public PlatformIoInstaller PlatformIoInstaller { get; }
     public BaselineSizeService BaselineSizeService { get; }
     public BuildOrchestrator BuildOrchestrator { get; }
 
@@ -38,6 +39,7 @@ public sealed class AppServices
         WorkspaceService = new WorkspaceService(Paths);
         BuildGenerator = new BuildGenerator();
         PlatformIoBuildService = new PlatformIoBuildService();
+        PlatformIoInstaller = new PlatformIoInstaller(httpClient);
         BaselineSizeService = new BaselineSizeService(Paths, Config, WorkspaceService, PlatformIoBuildService, httpClient);
         BuildOrchestrator = new BuildOrchestrator(WorkspaceService, BuildGenerator, PlatformIoBuildService, BaselineSizeService);
     }

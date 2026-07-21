@@ -22,7 +22,7 @@ public sealed class PlatformIoBuildService
 
         var psi = new ProcessStartInfo
         {
-            FileName = "pio",
+            FileName = PlatformIoInstaller.ResolvePioCommand(),
             ArgumentList = { "run", "-e", environment },
             WorkingDirectory = workspace.SourceDir,
             RedirectStandardOutput = true,
@@ -37,7 +37,17 @@ public sealed class PlatformIoBuildService
         process.OutputDataReceived += (_, e) => OnLine(e.Data, allLines, progress);
         process.ErrorDataReceived += (_, e) => OnLine(e.Data, allLines, progress);
 
-        process.Start();
+        try
+        {
+            process.Start();
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            throw new InvalidOperationException(
+                "PlatformIO Core ('pio') was not found. BE Cruncher compiles firmware through it, but does not " +
+                "bundle it — install it from https://platformio.org/install/cli, then restart BE Cruncher (a new " +
+                "terminal/app session is needed after install for the PATH change to take effect).");
+        }
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
         await process.WaitForExitAsync(ct);

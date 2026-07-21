@@ -54,6 +54,14 @@
                 <Button Grid.Column="1" Content="Browse..." Width="90" Margin="8,0,0,0" Tag="CacheBox" Click="BrowseButton_Click"/>
                 <Button Grid.Column="2" Content="Reset" Width="70" Margin="8,0,0,0" Tag="CacheBox" Click="ResetButton_Click"/>
             </Grid>
+
+            <TextBlock Text="PlatformIO Core (compiles the firmware — required)" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <TextBlock x:Name="PlatformIoStatusText" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <Button x:Name="PlatformIoInstallButton" Content="Install / Reinstall" Width="120" Click="PlatformIoInstallButton_Click"/>
+                <Button x:Name="PlatformIoUninstallButton" Content="Uninstall" Width="90" Margin="8,0,0,0" Click="PlatformIoUninstallButton_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="PlatformIoProgressText" Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
         </StackPanel>
     </DockPanel>
 </Page>

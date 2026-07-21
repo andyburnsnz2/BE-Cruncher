@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using BE_Cruncher.Models;
@@ -43,6 +44,13 @@ namespace BE_Cruncher.Pages
             var progress = new Progress<string>(AppendLine);
             try
             {
+                if (!_services.PlatformIoInstaller.IsInstalled() && !await EnsurePlatformIoInstalledAsync(progress))
+                {
+                    _finished = true;
+                    UpdateSummary();
+                    return;
+                }
+
                 var originalSourceDir = _services.Paths.OriginalSourceDir(_release.TagName);
                 var report = await _services.BuildOrchestrator.RunAsync(originalSourceDir, _analysis, _config, progress);
 
@@ -58,6 +66,37 @@ namespace BE_Cruncher.Pages
                 StatusText.Text = "Build could not start.";
                 AppendLine($"ERROR: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// PlatformIO Core is a hard dependency this app doesn't bundle. If it's missing, ask before
+        /// doing anything — installing software on someone's machine isn't something to do silently,
+        /// even from an official source — then run the actual install invisibly (no console window)
+        /// with progress streamed into the same log this page already shows for the build itself.
+        /// </summary>
+        private async Task<bool> EnsurePlatformIoInstalledAsync(IProgress<string> progress)
+        {
+            var confirmed = MessageBox.Show(
+                "PlatformIO Core is required to compile firmware, but wasn't found on this machine.\n\n" +
+                "Install it now? This downloads and runs PlatformIO's own official installer script " +
+                "(requires Python to already be installed).",
+                "PlatformIO Core required", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+            if (!confirmed)
+            {
+                StatusText.Text = "Build cancelled — PlatformIO Core is required.";
+                return false;
+            }
+
+            AppendLine("PlatformIO Core not found — installing...");
+            var installed = await _services.PlatformIoInstaller.InstallAsync(progress);
+            if (!installed)
+            {
+                StatusText.Text = "PlatformIO Core installation failed — see the log above.";
+                return false;
+            }
+
+            return true;
         }
 
         private void AppendLine(string line)

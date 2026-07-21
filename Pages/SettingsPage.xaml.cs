@@ -18,6 +18,54 @@ namespace BE_Cruncher.Pages
             RepositoriesBox.Text = services.Paths.RepositoriesDir;
             WorkspacesBox.Text = services.Paths.WorkspacesDir;
             CacheBox.Text = services.Paths.CacheDir;
+
+            RefreshPlatformIoStatus();
+        }
+
+        private void RefreshPlatformIoStatus()
+        {
+            var installed = _services.PlatformIoInstaller.IsInstalled();
+            PlatformIoStatusText.Text = installed
+                ? $"Installed and working ({_services.PlatformIoInstaller.ResolvePioExecutable()})."
+                : "Not installed (or installed but not working — see below). Nothing else on this page depends on it; you can also install it the first time you start a build.";
+            PlatformIoUninstallButton.IsEnabled = System.IO.Directory.Exists(PlatformIoInstaller.RootInstallDir);
+        }
+
+        private async void PlatformIoInstallButton_Click(object sender, RoutedEventArgs e)
+        {
+            PlatformIoInstallButton.IsEnabled = false;
+            PlatformIoUninstallButton.IsEnabled = false;
+            PlatformIoProgressText.Text = "";
+
+            var progress = new Progress<string>(line => PlatformIoProgressText.Text = line);
+            var ok = await _services.PlatformIoInstaller.InstallAsync(progress);
+            PlatformIoProgressText.Text = ok ? "Done." : PlatformIoProgressText.Text;
+
+            RefreshPlatformIoStatus();
+            PlatformIoInstallButton.IsEnabled = true;
+        }
+
+        private void PlatformIoUninstallButton_Click(object sender, RoutedEventArgs e)
+        {
+            var confirmed = MessageBox.Show(
+                $"Delete PlatformIO's entire install folder ({PlatformIoInstaller.RootInstallDir})?\n\n" +
+                "This is a clean, complete removal — nothing else on your system is affected. " +
+                "You'll need to reinstall it before building firmware again.",
+                "Uninstall PlatformIO Core", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
+            if (!confirmed)
+                return;
+
+            try
+            {
+                _services.PlatformIoInstaller.Uninstall();
+                PlatformIoProgressText.Text = "Uninstalled.";
+            }
+            catch (Exception ex)
+            {
+                PlatformIoProgressText.Text = $"Could not fully uninstall: {ex.Message}";
+            }
+
+            RefreshPlatformIoStatus();
         }
 
         private void BackButton_Click(object sender, RoutedEventArgs e) => NavigationService?.GoBack();
