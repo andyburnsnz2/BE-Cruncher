@@ -7,7 +7,7 @@
       Title="Build Progress"
       d:DesignWidth="720" d:DesignHeight="500">
     <DockPanel Margin="10">
-        <TextBlock DockPanel.Dock="Top" Text="Step 3: Building" FontWeight="Bold" Margin="0,0,0,10"/>
+        <TextBlock DockPanel.Dock="Top" x:Name="HeaderText" Text="Step 3: Building" FontWeight="Bold" Margin="0,0,0,10"/>
         <TextBlock DockPanel.Dock="Top" x:Name="SummaryText" Text="" FontWeight="SemiBold"
                    Foreground="{StaticResource AccentBrush}" Margin="0,0,0,4" TextWrapping="Wrap"/>
         <TextBlock DockPanel.Dock="Top" x:Name="StatusText" Text="Starting..." Margin="0,0,0,10" TextWrapping="Wrap"
