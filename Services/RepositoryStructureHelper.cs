@@ -18,21 +18,31 @@ public static class RepositoryStructureHelper
     public static string? FindComponentFolder(string sourceRoot, string namePattern) => FindDirectory(sourceRoot, namePattern);
 
     /// <summary>
-    /// Finds the folder's registration/factory .cpp file using #include density (the file that
-    /// #includes every driver header) plus its matching .h, without relying on a specific file name.
+    /// Finds the folder's registration/factory file pair using same-folder #include density (the pair
+    /// that #includes every driver header) without relying on a specific file name. Scores the .cpp and
+    /// its matching .h *together* — the driver-header #include block moves between the .cpp and the .h
+    /// across releases (observed: present in BATTERIES.cpp in some releases, in BATTERIES.h in others),
+    /// so scoring the .cpp alone can pick the wrong file entirely in a release where the block lives in
+    /// the header. Only same-folder includes count toward the score — a driver file with many unrelated
+    /// cross-folder includes (e.g. "../datalayer/...") must not outscore the real registration pair.
     /// </summary>
     public static (string? CppPath, string? HPath) FindRegistrationFilePair(string dir)
     {
-        var registrationCpp = Directory.EnumerateFiles(dir, "*.cpp", SearchOption.TopDirectoryOnly)
-            .Select(f => (Path: f, IncludeCount: CountLocalIncludes(f)))
+        var registrationPair = Directory.EnumerateFiles(dir, "*.cpp", SearchOption.TopDirectoryOnly)
+            .Select(cpp =>
+            {
+                var h = Path.ChangeExtension(cpp, ".h");
+                var hExists = File.Exists(h);
+                var includeCount = CountLocalIncludes(cpp) + (hExists ? CountLocalIncludes(h) : 0);
+                return (CppPath: cpp, HPath: hExists ? h : null, IncludeCount: includeCount);
+            })
             .OrderByDescending(x => x.IncludeCount)
             .FirstOrDefault();
 
-        if (registrationCpp.Path is null || registrationCpp.IncludeCount <= 3)
+        if (registrationPair.CppPath is null || registrationPair.IncludeCount <= 3)
             return (null, null);
 
-        var headerPath = Path.ChangeExtension(registrationCpp.Path, ".h");
-        return (registrationCpp.Path, File.Exists(headerPath) ? headerPath : null);
+        return (registrationPair.CppPath, registrationPair.HPath);
     }
 
     /// <summary>
@@ -155,7 +165,8 @@ public static class RepositoryStructureHelper
         (macro.StartsWith("__", StringComparison.Ordinal) && macro.EndsWith("__", StringComparison.Ordinal));
 
     private static int CountLocalIncludes(string file) =>
-        Regex.Matches(SafeReadAllText(file), "^#include\\s+\"", RegexOptions.Multiline).Count;
+        Regex.Matches(SafeReadAllText(file), "^\\s*#include\\s+\"([^\"]+)\"", RegexOptions.Multiline)
+            .Count(m => !m.Groups[1].Value.Contains('/'));
 
     private static string SafeReadAllText(string file)
     {
