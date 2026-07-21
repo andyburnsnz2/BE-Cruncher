@@ -29,6 +29,18 @@
 
 ---
 
+## Download
+
+Grab the latest self-contained Windows `.exe` from the
+[GitHub Releases page](https://github.com/andyburnsnz2/BE-Cruncher/releases/latest) — no installer, no separate
+.NET runtime to install first. Just download and run `BE-Cruncher-v<version>-win-x64.exe`.
+
+You will still need [PlatformIO Core](https://platformio.org/) to actually compile firmware — if it isn't already
+on your machine, BE Cruncher will offer to install it for you the first time you start a build (or you can install
+it upfront from the app's Settings page).
+
+---
+
 ## What it does
 
 Battery Emulator ships one firmware image containing *every* supported battery driver, *every* supported inverter
