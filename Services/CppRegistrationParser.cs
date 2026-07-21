@@ -20,6 +20,8 @@ public static class CppRegistrationParser
     private static readonly Regex ReturnScopedRegex = new(@"return\s+(\w+)::(\w+)\s*;", RegexOptions.Compiled);
     private static readonly Regex ClassDeclRegex = new(@"^\s*class\s+(\w+)\s*[:{ ]", RegexOptions.Compiled | RegexOptions.Multiline);
     private static readonly Regex LocalIncludeRegex = new("^\\s*#include\\s+\"([^\"]+)\"", RegexOptions.Compiled | RegexOptions.Multiline);
+    private static readonly Regex ExternDeclRegex = new(
+        @"^\s*extern\s+.+?\b(\w+)\s*(?:\([^)]*\))?\s*;\s*$", RegexOptions.Compiled | RegexOptions.Multiline);
     private static readonly string[] SentinelEnumValues = ["None", "Highest", "Unknown", "Invalid"];
 
     public sealed record CaseGroup(
@@ -177,12 +179,20 @@ public static class CppRegistrationParser
     /// <summary>
     /// Starting from a class's own .h/.cpp, follows local #include chains within the same folder to
     /// collect every file that pair transitively depends on (e.g. a "-HTML.h" companion file).
+    /// Some drivers #include the shared registration header (e.g. to reach the family's enum type) —
+    /// the walk must not follow *into* that file, because its .cpp unconditionally #includes every
+    /// other driver in the family, which would make this driver's closure (and therefore everyone
+    /// else's file-ownership count) swallow the entire folder. The registration file is recorded as
+    /// touched (so callers can still see the reference) but never expanded past.
     /// </summary>
-    public static List<string> ResolveClassFileClosure(string folderDir, string className)
+    public static List<string> ResolveClassFileClosure(
+        string folderDir, string className, string? registrationCppPath = null, string? registrationHPath = null)
     {
         var header = FindClassHeader(folderDir, className);
         if (header is null)
             return [];
+
+        bool IsRegistrationFile(string path) => PathEquals(path, registrationCppPath) || PathEquals(path, registrationHPath);
 
         var basename = Path.GetFileNameWithoutExtension(header);
         var cpp = Path.Combine(folderDir, basename + ".cpp");
@@ -191,7 +201,7 @@ public static class CppRegistrationParser
         if (File.Exists(cpp))
             closure.Add(cpp);
 
-        var queue = new Queue<string>(closure);
+        var queue = new Queue<string>(closure.Where(f => !IsRegistrationFile(f)));
         while (queue.Count > 0)
         {
             var file = queue.Dequeue();
@@ -207,18 +217,122 @@ public static class CppRegistrationParser
                     continue;
 
                 closure.Add(includedPath);
-                queue.Enqueue(includedPath);
+                if (!IsRegistrationFile(includedPath))
+                    queue.Enqueue(includedPath);
 
                 // PlatformIO compiles every .cpp in the tree regardless of whether anything
                 // #includes it, so a discovered header's sibling .cpp must travel with it —
                 // not just the original seed class's pair.
                 var siblingCpp = Path.Combine(folderDir, Path.GetFileNameWithoutExtension(includedPath) + ".cpp");
-                if (File.Exists(siblingCpp) && closure.Add(siblingCpp))
+                if (File.Exists(siblingCpp) && closure.Add(siblingCpp) && !IsRegistrationFile(siblingCpp))
                     queue.Enqueue(siblingCpp);
             }
         }
 
         return [.. closure];
+    }
+
+    /// <summary>
+    /// Follows the registration HEADER's own local #include chain (same traversal rule as
+    /// ResolveClassFileClosure — a discovered header's sibling .cpp travels with it) to find every
+    /// file it unconditionally depends on regardless of which driver is selected (e.g. a shared base
+    /// class). Deliberately seeded from the registration .h only, not the .cpp: the .h is re-included
+    /// by many other translation units across the codebase wherever the family's enum type is needed
+    /// (e.g. "TESLA-BATTERY.cpp" itself includes "BATTERIES.h"), so anything it needs is a genuine,
+    /// global, permanent dependency. The .cpp's own #include block, by contrast, is a per-driver
+    /// registration list that RegistrationEditor rewrites entirely based on selection — a companion
+    /// helper file the .cpp happens to #include directly alongside a driver's primary header (e.g. a
+    /// CT-clamp or shunt helper) is that driver's own file, not a permanent registration-file need,
+    /// even though the .cpp references it right at the top same as the primary header. The walk also
+    /// stops at any known driver's own primary header rather than following into it, as a defensive
+    /// backstop against re-exploding into an unrelated driver's dependency graph (not expected to ever
+    /// trigger for the .h — its own dependency chain is normally small and driver-independent — but
+    /// cheap insurance against a future registration header that happens to reference one directly).
+    /// </summary>
+    private static HashSet<string> ResolveSharedInfrastructureFiles(
+        string folderDir, string? registrationHPath, HashSet<string> driverHeaders)
+    {
+        var seeds = new[] { registrationHPath }.Where(p => p is not null).Cast<string>().ToList();
+        var closure = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var queue = new Queue<string>(seeds);
+        foreach (var seed in seeds)
+            closure.Add(seed);
+
+        while (queue.Count > 0)
+        {
+            var file = queue.Dequeue();
+            var content = SafeReadAllText(file);
+            foreach (Match m in LocalIncludeRegex.Matches(content))
+            {
+                var includedName = m.Groups[1].Value;
+                if (includedName.Contains('/'))
+                    continue; // not a same-folder include
+
+                var includedPath = Path.Combine(folderDir, includedName);
+                if (!File.Exists(includedPath) || closure.Contains(includedPath))
+                    continue;
+
+                if (driverHeaders.Contains(includedPath))
+                    continue;
+
+                closure.Add(includedPath);
+                queue.Enqueue(includedPath);
+
+                var siblingCpp = Path.Combine(folderDir, Path.GetFileNameWithoutExtension(includedPath) + ".cpp");
+                if (File.Exists(siblingCpp) && !driverHeaders.Contains(includedPath) && closure.Add(siblingCpp))
+                    queue.Enqueue(siblingCpp);
+            }
+        }
+
+        closure.ExceptWith(seeds);
+        return closure;
+    }
+
+    /// <summary>
+    /// A protected shared-infra header can "extern"-declare a global (variable or function) whose only
+    /// definition lives in some driver's own file — reachable purely because that driver's #include
+    /// chain happens to be the only path that reaches it, exactly like the CT-clamp/shunt globals
+    /// declared in "Shunt.h" but only ever defined in a Chademo-specific companion file. Deleting that
+    /// definition file would leave every other, unrelated caller of the extern declaration (settings
+    /// persistence, the web UI, etc.) with a dangling link-time reference, regardless of which driver
+    /// was actually selected. When any file in a driver's own closure defines such a symbol, that
+    /// driver's code is — in this upstream release — unconditionally required regardless of selection,
+    /// so its *entire* closure is protected together (not just the one defining file): the defining
+    /// file may itself have further local #include needs (e.g. a leftover reference back to its
+    /// driver's own primary header) that must travel with it rather than dangle.
+    /// </summary>
+    private static void ProtectExternDefinitions(
+        HashSet<string> sharedInfraFiles, IEnumerable<List<string>> closures)
+    {
+        var externSymbols = sharedInfraFiles
+            .Where(f => f.EndsWith(".h", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(f => ExternDeclRegex.Matches(SafeReadAllText(f)).Select(m => m.Groups[1].Value))
+            .Distinct()
+            .ToList();
+        if (externSymbols.Count == 0)
+            return;
+
+        foreach (var closure in closures)
+        {
+            var definesAny = closure
+                .Where(f => f.EndsWith(".cpp", StringComparison.OrdinalIgnoreCase))
+                .Any(f => externSymbols.Any(s => DefinesSymbol(SafeReadAllText(f), s)));
+            if (definesAny)
+                sharedInfraFiles.UnionWith(closure);
+        }
+    }
+
+    private static bool DefinesSymbol(string content, string symbol)
+    {
+        foreach (var rawLine in content.Replace("\r\n", "\n").Split('\n'))
+        {
+            var line = rawLine.TrimStart();
+            if (line.StartsWith("extern ") || line.StartsWith("//"))
+                continue;
+            if (Regex.IsMatch(line, $@"\b{Regex.Escape(symbol)}\b\s*(=[^;]*;|\([^)]*\)\s*\{{)"))
+                return true;
+        }
+        return false;
     }
 
     public static bool IsSentinelValue(string enumValueName) =>
@@ -285,8 +399,13 @@ public static class CppRegistrationParser
         }
 
         var classNames = classByEnumValue.Values.Distinct().ToList();
-        var closureByClass = classNames.ToDictionary(c => c, c => ResolveClassFileClosure(folderDir, c));
+        var closureByClass = classNames.ToDictionary(c => c, c => ResolveClassFileClosure(folderDir, c, registrationCppPath, registrationHPath));
         var headerByClass = classNames.ToDictionary(c => c, c => FindClassHeader(folderDir, c));
+
+        var driverHeaders = new HashSet<string>(
+            headerByClass.Values.Where(h => h is not null)!, StringComparer.OrdinalIgnoreCase);
+        var sharedInfraFiles = ResolveSharedInfrastructureFiles(folderDir, registrationHPath, driverHeaders);
+        ProtectExternDefinitions(sharedInfraFiles, closureByClass.Values);
 
         var fileOwnerCounts = closureByClass.Values
             .SelectMany(files => files.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -308,6 +427,11 @@ public static class CppRegistrationParser
                 // infrastructure for the whole family, never a single driver's exclusive file — even
                 // if only one driver's #include chain happens to reach it (e.g. for the enum type).
                 .Where(f => !PathEquals(f, registrationCppPath) && !PathEquals(f, registrationHPath))
+                // Files the registration file itself unconditionally depends on (e.g. a shared base
+                // class or an unrelated sibling family's header it #includes directly) must never be
+                // deleted either, even if only one driver's #include chain happens to also reach them
+                // — the registration file needs them regardless of which driver is selected.
+                .Where(f => !sharedInfraFiles.Contains(f))
                 .ToList();
 
             var displayName = displayByEnumValue.GetValueOrDefault(enumValue) ?? Humanize(enumValue);

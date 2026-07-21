@@ -144,21 +144,34 @@ public sealed class BuildGenerator
                 return (false, deletedFiles);
             }
 
-            string? PrimaryHeaderFor(ComponentInfo c)
+            // A component's registration-file #include footprint isn't limited to its "primary" class
+            // header — the registration .cpp often #includes companion helper headers directly too
+            // (e.g. a driver's own CT-clamp or shunt helper file), each as its own top-level #include
+            // line. Stripping only the primary header's #include line while deleting every exclusive
+            // file leaves those companion #includes dangling, pointing at a file that no longer exists.
+            // Every .h file this component actually owns exclusively (per CppRegistrationParser) must
+            // have its #include line stripped, not just the primary one.
+            List<string> HeadersFor(ComponentInfo c)
             {
                 var shortEnumValue = c.EnumValue.Split("::")[^1];
-                return parsed.Components.FirstOrDefault(p => p.EnumValue == shortEnumValue)?.PrimaryHeaderFileName;
+                var component = parsed.Components.FirstOrDefault(p => p.EnumValue == shortEnumValue);
+                if (component is null)
+                    return [];
+                return component.ExclusiveFiles
+                    .Where(f => f.EndsWith(".h", StringComparison.OrdinalIgnoreCase))
+                    .Select(Path.GetFileName)
+                    .Where(f => !string.IsNullOrEmpty(f))
+                    .Cast<string>()
+                    .ToList();
             }
 
-            var selectedHeader = PrimaryHeaderFor(selected);
-
-            // Sibling components sometimes share the same underlying header (e.g. Tesla Model 3/Y and
-            // Tesla Model S/X both declared by TESLA-BATTERY.h) — never strip an #include the
-            // selected component's own driver still needs.
+            // Sibling components sometimes share underlying headers (e.g. Tesla Model 3/Y and Tesla
+            // Model S/X both declared by TESLA-BATTERY.h) — never strip an #include the selected
+            // component's own driver still needs.
+            var selectedHeaders = new HashSet<string>(HeadersFor(selected), StringComparer.OrdinalIgnoreCase);
             var excludedHeaders = excluded
-                .Select(PrimaryHeaderFor)
-                .Where(h => !string.IsNullOrEmpty(h) && !string.Equals(h, selectedHeader, StringComparison.OrdinalIgnoreCase))
-                .Cast<string>()
+                .SelectMany(HeadersFor)
+                .Where(h => !selectedHeaders.Contains(h))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
