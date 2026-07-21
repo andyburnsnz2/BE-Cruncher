@@ -88,7 +88,10 @@ namespace BE_Cruncher.Pages
             try
             {
                 var originalSourceDir = _services.Paths.OriginalSourceDir(item.Release.TagName);
-                var analysis = await Task.Run(() => _services.AnalysisService.Analyze(item.Release.TagName, originalSourceDir));
+                // Force a fresh parse rather than trusting whatever's cached: the user clicked Analyze,
+                // so they want the current source (and the current version of this app) reflected, not
+                // a result cached from a version of BE Cruncher with different parsing logic.
+                var analysis = await Task.Run(() => _services.AnalysisService.Analyze(item.Release.TagName, originalSourceDir, forceRefresh: true));
                 item.Status = DescribeStatus(item.Release);
                 ConfigureButton.IsEnabled = true;
                 StatusText.Text =
